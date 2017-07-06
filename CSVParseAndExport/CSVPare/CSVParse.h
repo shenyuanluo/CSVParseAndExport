@@ -10,8 +10,8 @@
 
 @interface CSVParse : NSObject
 
-+ (NSString *)getWriteDirPath;
++ (instancetype)shareCSVParse;
 
-+ (void)parseCSVFileWithPath:(NSString *)filePath;
+- (void)parseCSVFileWithPath:(NSString *)filePath;
 
 @end

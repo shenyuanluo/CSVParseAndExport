@@ -9,7 +9,7 @@
 #import <Foundation/Foundation.h>
 #import "CSVExport.h"
 #import "CSVParse.h"
-
+#import "FileManager.h"
 
 void cvsParse()
 {
@@ -33,8 +33,8 @@ void cvsParse()
                                                          encoding:NSUTF8StringEncoding];
             filePath = [pathStr stringByExpandingTildeInPath];
             NSLog(@"Parsing now, Please waitting...");
-            [CSVParse parseCSVFileWithPath:filePath];
-            NSLog(@"Parse is finish, result at path:%@", [CSVParse getWriteDirPath]);
+            [[CSVParse shareCSVParse] parseCSVFileWithPath:filePath];
+            NSLog(@"Parse is finish, result at path:%@", [[FileManager shareFileManager] exportFilePath]);
             
         }
         exit(1);
@@ -81,13 +81,17 @@ void cvsExport()
         NSLog(@"Parsing now, Please waitting...");
         for (NSInteger i = 0; i < pathArray.count; i++)
         {
-            [CSVExport parestFileWithPath:[pathArray objectAtIndex:i]
-                              columnCount:i + 1];
+            [[CSVExport shareCSVExport] parestFileWithPath:[pathArray objectAtIndex:i]
+                                             currentColumn:i + 1
+                                               columnCount:pathArray.count];
         }
-        NSLog(@"Parse is finish, result at path:%@", [CSVExport exportFilePath]);
+        NSLog(@"Parse is finish, result at path:%@", [[FileManager shareFileManager] exportFilePath]);
     }
     exit(1);
 }
+
+
+
 
 
 int main(int argc, const char * argv[])

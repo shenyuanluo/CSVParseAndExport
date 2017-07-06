@@ -7,6 +7,7 @@
 //
 
 #import "CSVParse.h"
+#import "FileManager.h"
 
 #define DEPORT_DIR  @"Localizable_Export"   // 导出文件夹名称
 #define FILE_BASE_NAME @"Localizable"       // 文件基本名字
@@ -16,106 +17,24 @@
 
 @implementation CSVParse
 
-
-#pragma mark - 文件夹
-#pragma mark -- 创建导出文件夹
-+ (NSString *)createDirWithPath:(NSString *)dirPath
++ (instancetype)shareCSVParse
 {
-    if (!dirPath || 0 >= dirPath.length)
-    {
-        return nil;
-    }
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSError *error = nil;
-    [fileManager createDirectoryAtPath:dirPath
-           withIntermediateDirectories:YES
-                            attributes:nil
-                                 error:&error];
-    NSAssert(!error, @"Create 'Localizable_Export' directory is failed !");
-    return dirPath;
-}
-
-
-#pragma mark -- 获取导出文件夹，没有则创建
-+ (NSString *)getWriteDirPath
-{
-    NSArray *pathArray = NSSearchPathForDirectoriesInDomains(NSDesktopDirectory,
-                                                             NSUserDomainMask,
-                                                             YES);
-    NSString *desktopPath      = [pathArray objectAtIndex:0];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSString *writeFleDir      = [desktopPath stringByAppendingPathComponent:DEPORT_DIR];
-    BOOL isDirectory = NO;
-    if (YES == [fileManager fileExistsAtPath:writeFleDir
-                                 isDirectory:&isDirectory])
-    {
-        if (YES == isDirectory)
+    static CSVParse *g_csvParse = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        
+        if (nil == g_csvParse)
         {
-            return writeFleDir;
+            g_csvParse = [[CSVParse alloc] init];
         }
-        else
-        {
-            return [self createDirWithPath: writeFleDir];
-        }
-    }
-    else
-    {
-        return [self createDirWithPath: writeFleDir];
-    }
-}
-
-
-#pragma mark - 文件
-#pragma mark -- 创建导出文件
-+ (NSString *)createFileWithPath:(NSString *)filePath
-{
-    if (!filePath || 0 >= filePath.length)
-    {
-        return nil;
-    }
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSError *error = nil;
-    [fileManager createFileAtPath:filePath
-                         contents:nil
-                       attributes:nil];
-    NSAssert(!error, @"Create 'Localizable.strings' file is failed !");
-    return filePath;
-}
-
-
-#pragma mark -- 获取导出文件
-+ (NSString *)getWrithFilePathWithCount:(NSInteger)fileCount
-{
-    if (0 >= fileCount)
-    {
-        return nil;
-    }
-    NSString *fileName = [NSString stringWithFormat:@"%@%ld.%@", FILE_BASE_NAME, (long)fileCount, FILE_SUFFIX];
-    NSString *filePath = [[self getWriteDirPath] stringByAppendingPathComponent:fileName];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    BOOL isDirectory = NO;
-    if (YES == [fileManager fileExistsAtPath:filePath
-                                 isDirectory:&isDirectory])
-    {
-        if (NO == isDirectory)
-        {
-            return filePath;
-        }
-        else
-        {
-            return [self createFileWithPath:filePath];
-        }
-    }
-    else
-    {
-        return [self createFileWithPath:filePath];
-    }
+    });
+    return g_csvParse;
 }
 
 
 #pragma mark - 解析
 #pragma mark -- 解析 CSV 文件
-+ (void)parseCSVFileWithPath:(NSString *)filePath
+- (void)parseCSVFileWithPath:(NSString *)filePath
 {
     if (!filePath || 0 >= filePath.length)
     {
@@ -138,7 +57,7 @@
 
 
 #pragma mark -- 解析 CSV 文件每一行字符
-+ (void)parseRowStr:(NSString *)rowStr
+- (void)parseRowStr:(NSString *)rowStr
 {
     if (!rowStr || 2 > rowStr.length)   // keyStr,valueStr （keyStr 必须有值；valueStr 可以为空）
     {
@@ -160,7 +79,7 @@
     
     NSString *valueStr  = nil;
     NSString *splitStr  = nil;
-    NSInteger fileCount = 0;
+    NSInteger fileIndex = 0;
     NSMutableArray <NSString *>*splitValueStrArray = [NSMutableArray arrayWithCapacity:0];
     for (NSInteger i = 1; i < strArray.count; i++)  // 遍历 valueStr
     {
@@ -237,7 +156,7 @@
             
             [self addKeyStr:keyStr
                    valueStr:valueStr
-                  fileCount:++fileCount];
+                  fileIndex:++fileIndex];
             
             [splitValueStrArray removeAllObjects];
         }
@@ -253,7 +172,7 @@
             
             [self addKeyStr:keyStr
                    valueStr:valueStr
-                  fileCount:++fileCount];
+                  fileIndex:++fileIndex];
         }
     }
     strArray = nil;
@@ -262,7 +181,7 @@
 
 
 #pragma mar -- 移除前后空格
-+ (NSString *)removeWhitespaceWithStr:(NSString *)sourceStr
+- (NSString *)removeWhitespaceWithStr:(NSString *)sourceStr
 {
     if (!sourceStr || 0 >= sourceStr.length)
     {
@@ -273,7 +192,7 @@
 
 
 #pragma mark -- 去掉【\r】,如果有【\r】（使用字符替换有时不奏效）
-+ (NSString *)removeCarriageReturnWithStr:(NSString *)sourceStr
+- (NSString *)removeCarriageReturnWithStr:(NSString *)sourceStr
 {
     NSString *newStr = @"";
     if (!sourceStr || 0 >= sourceStr.length)
@@ -298,7 +217,7 @@
 
 
 #pragma mark -- 去掉 CSV 格式文件的转义字符【"】
-+ (NSString *)removeCSVFileESCWithStr:(NSString *)sourceStr
+- (NSString *)removeCSVFileESCWithStr:(NSString *)sourceStr
 {
     if (!sourceStr || 0 >= sourceStr.length)
     {
@@ -316,7 +235,7 @@
 
 
 #pragma mark -- 添加 C 语言格式文件字符串转移符【\】，如果有【"】
-+ (NSString *)addESCWithStr:(NSString *)sourceStr
+- (NSString *)addESCWithStr:(NSString *)sourceStr
 {
     NSString *newStr = @"";
     if (!sourceStr || 0 >= sourceStr.length)
@@ -341,15 +260,17 @@
 
 
 #pragma mark -- 添加 ‘key-value’ 到 strings 文件
-+ (void)addKeyStr:(NSString *)dstKeyStr
+- (void)addKeyStr:(NSString *)dstKeyStr
          valueStr:(NSString *)dstValueStr
-        fileCount:(NSInteger)fileCount
+        fileIndex:(NSInteger)fileIndex
 {
-    if ([dstKeyStr isEqualToString:@"Personal_camera"])
+    if (!dstKeyStr || 0 >= dstKeyStr.length
+        || !dstValueStr || 0 >= fileIndex)
     {
-        NSLog(@"");
+        return ;
     }
-    NSString *fileContents = [NSString stringWithContentsOfFile:[self getWrithFilePathWithCount:fileCount]
+    NSString *fileContents = [NSString stringWithContentsOfFile:[[FileManager shareFileManager] getWriteFilePathWithType:ExportStrings
+                                                                                                        stringsFileIndex:fileIndex]
                                                        encoding:NSUTF8StringEncoding
                                                           error:nil];
     NSArray <NSString *> *strArray = [fileContents componentsSeparatedByString:@"\n"];
@@ -423,7 +344,8 @@
         NSString *newKeyFormatStr = [NSString stringWithFormat:@"%-25s", [newKeyStr UTF8String]];
         NSString *newRowStr       = [NSString stringWithFormat:@"%@ = \"%@\";\n", newKeyFormatStr, dstValueStr];
         NSString *newFileStr      = [NSString stringWithFormat:@"%@%@", fileContents, newRowStr];
-        [newFileStr writeToFile:[self getWrithFilePathWithCount:fileCount]
+        [newFileStr writeToFile:[[FileManager shareFileManager] getWriteFilePathWithType:ExportStrings
+                                                                        stringsFileIndex:fileIndex]
                      atomically:YES
                        encoding:NSUTF8StringEncoding
                           error:nil];

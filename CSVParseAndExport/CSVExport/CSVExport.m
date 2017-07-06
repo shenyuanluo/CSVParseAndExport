@@ -7,86 +7,66 @@
 //
 
 #import "CSVExport.h"
+#import "FileManager.h"
+#import "xlsxwriter.h"
+
+
+@interface CSVExport ()
+{
+    lxw_workbook  *_workbook;
+    lxw_worksheet *_worksheet;
+}
+
+/**
+ *  将要写的文件内容
+ */
+@property (nonatomic, copy) NSString *writeFileContents;
+
+@end
+
 
 @implementation CSVExport
 
-+ (NSString *)exportFilePath
++ (instancetype)shareCSVExport
 {
-    return [self createWriteFilePath];
+    static CSVExport *g_csvExport = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        
+        if (!g_csvExport)
+        {
+            g_csvExport = [[CSVExport alloc] init];
+        }
+    });
+    
+    return g_csvExport;
 }
 
 
-#pragma mark -- 创建 CSV 输出文件
-+ (NSString *)createWriteFilePath
+- (instancetype)init
 {
-    NSArray *pathArray = NSSearchPathForDirectoriesInDomains(NSDesktopDirectory,
-                                                             NSUserDomainMask,
-                                                             YES);
-    NSString *desktopPath      = [pathArray objectAtIndex:0];
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSString *writeFleDir      = [desktopPath stringByAppendingPathComponent:@"CSV_Export"];
-    
-    BOOL isDirectory = NO;
-    NSError *error   = nil;
-    if (NO == [fileManager fileExistsAtPath:writeFleDir
-                                isDirectory:&isDirectory])  // 文件夹不存在
+    if (self = [super init])
     {
-        [fileManager createDirectoryAtPath:writeFleDir
-               withIntermediateDirectories:YES
-                                attributes:nil
-                                     error:&error];
-        NSAssert(!error, @"Create 'CSV_Export' directory is failed !");
+        self.writeFileContents = @"";
     }
-    else
-    {
-        if (NO == isDirectory)  // 存在，但不是文件夹
-        {
-            [fileManager createDirectoryAtPath:writeFleDir
-                   withIntermediateDirectories:YES
-                                    attributes:nil
-                                         error:&error];
-            NSAssert(!error, @"Create 'CSV_Export' directory is failed !");
-        }
-        else    // 文件夹存在
-        {
-            //            NSLog(@"文件夹存在，无需重新创建！");
-        }
-    }
-    NSString *writeFilePath = [writeFleDir stringByAppendingPathComponent:[NSString stringWithFormat:@"csv_export.csv"]];
-    if (YES == [fileManager fileExistsAtPath:writeFilePath
-                                 isDirectory:&isDirectory])
-    {
-        if (YES == isDirectory)
-        {
-            //            NSLog(@"创建 CSV 文件！");
-            [fileManager createFileAtPath:writeFilePath
-                                 contents:nil
-                               attributes:nil];
-        }
-        else
-        {
-            //            NSLog(@"CSV 文件已存在，无需重新创建！");
-        }
-    }
-    else
-    {
-        //        NSLog(@"创建 CSV 文件！");
-        [fileManager createFileAtPath:writeFilePath
-                             contents:nil
-                           attributes:nil];
-    }
-    
-    return writeFilePath;
+    return self;
 }
 
 
-+ (void)parestFileWithPath:(NSString *)filePath
-               columnCount:(NSInteger)columnCount
+#pragma mark - 解析
+#pragma mark -- 解析 strings 文件
+- (void)parestFileWithPath:(NSString *)filePath
+             currentColumn:(NSUInteger)currentColumn
+               columnCount:(NSUInteger)columnCount
 {
+    if (!filePath || 0 >= filePath.length
+        || 0 >= currentColumn || 0 >= columnCount)
+    {
+        return;
+    }
     NSString *fileContents = [NSString stringWithContentsOfFile:filePath
                                                        encoding:NSUTF8StringEncoding
                                                           error:nil];
-    NSString *writeFilePath = [self createWriteFilePath];
     NSArray <NSString *> *strArray = [fileContents componentsSeparatedByString:@"\n"];
     fileContents = nil;
     
@@ -159,13 +139,31 @@
             //            NSLog(@"【%d】 keyStr = %@, valueStr = %@", i, keyStr, valueStr);
             [self addKeyStr:keyStr
                    valueStr:valueStr
-                   filePath:writeFilePath
-                columnCount:columnCount];
+              currentColumn:currentColumn];
         }
     }
     
+    // 写到 EXcel 文件
+    if (currentColumn == columnCount
+        && self.writeFileContents && 0 < self.writeFileContents.length)
+    {
+        NSString *filePath = [[FileManager shareFileManager] getWriteFilePathWithType:ExportXls
+                                                                     stringsFileIndex:0];
+        _workbook  = new_workbook([filePath fileSystemRepresentation]);
+        _worksheet = workbook_add_worksheet(_workbook, NULL);
+        NSArray <NSString *>*rowStrArray = [self.writeFileContents componentsSeparatedByString:@"\n"];
+        for (NSInteger j = 0; j < rowStrArray.count; j++)
+        {
+            [self writeRowStr:rowStrArray[j]
+                       forRow:(uint32_t)j];
+        }
+        workbook_close(_workbook);
+    }
+    
+    
+    
+    
     // 清空缓存
-    writeFilePath = nil;
     strArray      = nil;
     rowStr        = nil;
     firstStr      = nil;
@@ -180,22 +178,18 @@
 }
 
 
-+ (void)addKeyStr:(NSString *)dstKeyStr
+#pragma mark -- 添加 ’key-value‘
+- (void)addKeyStr:(NSString *)dstKeyStr
          valueStr:(NSString *)dstValueStr
-         filePath:(NSString *)filePath
-      columnCount:(NSInteger)columnCount
+    currentColumn:(NSInteger)currentColumn
 {
     if (!dstKeyStr || 0 >= dstKeyStr.length
-        || !dstValueStr || 0 >= dstValueStr.length
-        || ! filePath || 0 >= filePath.length)
+        || !dstValueStr || 0 >= dstValueStr.length)
     {
         return ;
     }
-    NSString *fileContents = [NSString stringWithContentsOfFile:filePath
-                                                       encoding:NSUTF8StringEncoding
-                                                          error:nil];
     BOOL isAddValueStr = NO;
-    NSArray <NSString *> *strArray = [fileContents componentsSeparatedByString:@"\n"];
+    NSArray <NSString *> *strArray = [self.writeFileContents componentsSeparatedByString:@"\n"];
     
     NSString *rowStr      = nil;
     NSString *srcKeyStr   = nil;
@@ -239,25 +233,24 @@
         // 追加
         newRowStr = [self formatOldRowStr:rowStr
                                  valueStr:dstValueStr
-                              columnCount:columnCount];
+                            currentColumn:currentColumn];
         preRowsStr = @"";
         for (NSInteger j = 0; j < i; j++)
         {
             preRowsStr = [NSString stringWithFormat:@"%@%@", preRowsStr, [self formatRowString:strArray[j]
-                                                                                   columnCount:columnCount]];
+                                                                                 currentColumn:currentColumn]];
         }
         preRowsStr = [NSString stringWithFormat:@"%@%@", preRowsStr, newRowStr];
         nextRowsStr = @"";
         for (NSInteger k = i + 1; k < strArray.count; k++)
         {
             nextRowsStr = [NSString stringWithFormat:@"%@%@", nextRowsStr, [self formatRowString:strArray[k]
-                                                                                     columnCount:columnCount]];
+                                                                                   currentColumn:currentColumn]];
         }
         newFileStr = [NSString stringWithFormat:@"%@%@", preRowsStr, nextRowsStr];
-        [newFileStr writeToFile:filePath
-                     atomically:YES
-                       encoding:NSUTF8StringEncoding
-                          error:nil];
+        
+        self.writeFileContents = newFileStr;
+        
         isAddValueStr = YES;
         break ;
     }
@@ -269,16 +262,14 @@
         newFileStr  = nil;
         
         NSString *emptyStr = @"";
-        for (NSInteger i = 0; i < columnCount; i++)
+        for (NSInteger i = 0; i < currentColumn; i++)
         {
             emptyStr = [NSString stringWithFormat:@"%@,", emptyStr];
         }
         newRowStr = [NSString stringWithFormat:@"%@%@%@\n", dstKeyStr, emptyStr, dstValueStr];
-        newFileStr = [NSString stringWithFormat:@"%@%@", fileContents, newRowStr];
-        [newFileStr writeToFile:filePath
-                     atomically:YES
-                       encoding:NSUTF8StringEncoding
-                          error:nil];
+        newFileStr = [NSString stringWithFormat:@"%@%@", self.writeFileContents, newRowStr];
+        
+        self.writeFileContents = newFileStr;
     }
     
     // 清空缓存
@@ -297,23 +288,23 @@
 
 
 #pragma mark -- 根据列数格式化 newRowStr
-+ (NSString *)formatOldRowStr:(NSString *)oldRowStr
+- (NSString *)formatOldRowStr:(NSString *)oldRowStr
                      valueStr:(NSString *)valueStr
-                  columnCount:(NSInteger)columnCount
+                currentColumn:(NSInteger)currentColumn
 {
-    if (!oldRowStr || !valueStr || 1 > columnCount)
+    if (!oldRowStr || !valueStr || 1 > currentColumn)
     {
         return @"";
     }
     NSString *newRowStr = @"";
     NSArray *strArray = [oldRowStr componentsSeparatedByString:@","];
-    if (columnCount == strArray.count)  // 刚好缺一列
+    if (currentColumn == strArray.count)  // 刚好缺一列
     {
         newRowStr = [NSString stringWithFormat:@"%@,%@\n", oldRowStr, valueStr];
     }
-    else  if (columnCount > strArray.count) // 空列数不足
+    else  if (currentColumn > strArray.count) // 空列数不足
     {
-        for (NSInteger i = 0; i < columnCount - (strArray.count - 1) - 1; i++)
+        for (NSInteger i = 0; i < currentColumn - (strArray.count - 1) - 1; i++)
         {
             newRowStr = [NSString stringWithFormat:@"%@%@", oldRowStr, @","];
         }
@@ -321,7 +312,7 @@
     }
     else    // 列数多余，需去除
     {
-        for (NSInteger i = 0; i < columnCount; i++)
+        for (NSInteger i = 0; i < currentColumn; i++)
         {
             if (0 == i)
             {
@@ -343,10 +334,10 @@
 
 
 #pragma mark -- 根据列数格式化 rowStr
-+ (NSString *)formatRowString:(NSString *)rowStr
-                  columnCount:(NSInteger)columnCount
+- (NSString *)formatRowString:(NSString *)rowStr
+                currentColumn:(NSInteger)currentColumn
 {
-    if (!rowStr || 0 >= rowStr.length || 1 > columnCount)
+    if (!rowStr || 0 >= rowStr.length || 1 > currentColumn)
     {
         return @"";
     }
@@ -355,9 +346,9 @@
     {
         return [NSString stringWithFormat:@"%@\n", rowStr];
     }
-    if (columnCount >= strArray.count)
+    if (currentColumn >= strArray.count)
     {
-        for (NSInteger i = 0; i < columnCount - (strArray.count - 1); i++)
+        for (NSInteger i = 0; i < currentColumn - (strArray.count - 1); i++)
         {
             rowStr = [NSString stringWithFormat:@"%@%@", rowStr, @","];
         }
@@ -366,6 +357,30 @@
     strArray = nil;
     
     return [NSString stringWithFormat:@"%@\n", rowStr];
+}
+
+
+#pragma mark -- 写入 XLS 文件
+- (void)writeRowStr:(NSString *)rowStr
+          forRow:(uint32_t)rowIndex
+{
+    if (!rowStr || 0 > rowIndex)
+    {
+        return;
+    }
+    NSArray <NSString *>*strArray = [rowStr componentsSeparatedByString:@","];
+    NSString *string = @"";
+    for (NSInteger i = 0; i < strArray.count; i++)
+    {
+        string = strArray[i];
+        if ([string containsString:@"`"])
+        {
+            string = [string stringByReplacingOccurrencesOfString:@"`"      // 替换回来 ‘,’ 逗号
+                                                       withString:@","];
+            
+        }
+        worksheet_write_string(_worksheet, rowIndex, i, [string UTF8String], NULL);
+    }
 }
 
 @end

@@ -10,9 +10,10 @@
 
 @interface CSVExport : NSObject
 
-+ (NSString *)exportFilePath;
++ (instancetype)shareCSVExport;
 
-+ (void)parestFileWithPath:(NSString *)filePath
-               columnCount:(NSInteger)columnCount;
+- (void)parestFileWithPath:(NSString *)filePath
+             currentColumn:(NSUInteger)currentColumn
+               columnCount:(NSUInteger)columnCount;
 
 @end
