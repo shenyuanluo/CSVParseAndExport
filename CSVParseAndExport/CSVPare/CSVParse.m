@@ -50,6 +50,8 @@
     {
         rowStr = nil;
         rowStr = strArray[i];
+        rowStr = [self removeCarriageReturnWithStr:rowStr];
+        rowStr = [self removeESCWithStr:rowStr];
 //        NSLog(@"rowStr = %@", rowStr);
         [self parseRowStr:rowStr];
     }
@@ -73,7 +75,6 @@
         return;
     }
     NSString *keyStr    = [self removeWhitespaceWithStr:strArray[0]];
-    keyStr              = [self removeCarriageReturnWithStr:keyStr];
     keyStr              = [self removeCSVFileESCWithStr:keyStr];
     keyStr              = [self addESCWithStr:keyStr];
     
@@ -90,10 +91,23 @@
         if (1 <= strArray[i].length
             && [@"\"" isEqualToString:[strArray[i] substringToIndex:1]])   // 寻找单元格起始【"】
         {
+            if ([@"\"" isEqualToString:[strArray[i] substringFromIndex:strArray[i].length - 1]])    // 最后一个字符是否是单元格结束【"】
+            {
+                // 去掉空格，单元格起始、结束【"】
+                valueStr = [self removeWhitespaceWithStr:[strArray[i] substringWithRange:NSMakeRange(1, strArray[i].length - 2)]];
+                
+                valueStr = [self removeCSVFileESCWithStr:valueStr];
+                
+                valueStr = [self addESCWithStr:valueStr];
+                
+                [self addKeyStr:keyStr
+                       valueStr:valueStr
+                      fileIndex:++fileIndex];
+                
+                continue;
+            }
             // 去掉空格，单元格起始【"】
             splitStr = [self removeWhitespaceWithStr:[strArray[i] substringFromIndex:1]];
-            
-            splitStr = [self removeCarriageReturnWithStr:splitStr];
             
             splitStr = [self removeCSVFileESCWithStr:splitStr];
             
@@ -107,8 +121,6 @@
             {
                 splitStr = nil;
                 splitStr = [self removeWhitespaceWithStr:strArray[i]];
-                
-                splitStr = [self removeCarriageReturnWithStr:splitStr];
                 
                 // 分割中间部分
                 if (![@"\"" isEqualToString:[splitStr substringWithRange:NSMakeRange(splitStr.length - 1, 1)]])
@@ -128,8 +140,6 @@
             if (i < strArray.count)
             {
                 splitStr = [self removeWhitespaceWithStr:strArray[i]];
-                
-                splitStr = [self removeCarriageReturnWithStr:splitStr];
                 
                 // 单元格结束【"】
                 if ([@"\"" isEqualToString:[splitStr substringWithRange:NSMakeRange(splitStr.length - 1, 1)]])
@@ -152,8 +162,6 @@
             
             valueStr = [self removeWhitespaceWithStr:valueStr];
             
-            valueStr = [self removeCarriageReturnWithStr:valueStr];
-            
             [self addKeyStr:keyStr
                    valueStr:valueStr
                   fileIndex:++fileIndex];
@@ -163,8 +171,6 @@
         else
         {
             valueStr = [self removeWhitespaceWithStr:strArray[i]];
-            
-            valueStr = [self removeCarriageReturnWithStr:valueStr];
             
             valueStr = [self removeCSVFileESCWithStr:valueStr];
             
@@ -191,7 +197,7 @@
 }
 
 
-#pragma mark -- 去掉【\r】,如果有【\r】（使用字符替换有时不奏效）
+#pragma mark -- 去掉‘回车标识符’【\r】,如果有【\r】（使用字符替换有时不奏效）
 - (NSString *)removeCarriageReturnWithStr:(NSString *)sourceStr
 {
     NSString *newStr = @"";
@@ -202,6 +208,31 @@
     if ([sourceStr containsString:@"\r"])
     {
         NSArray <NSString *>*rStrArray = [sourceStr componentsSeparatedByString:@"\r"];
+        newStr = rStrArray[0];
+        for (NSInteger i = 1; i < rStrArray.count; i++)
+        {
+            newStr = [NSString stringWithFormat:@"%@%@", newStr, rStrArray[i]];
+        }
+    }
+    else
+    {
+        newStr = sourceStr;
+    }
+    return newStr;
+}
+
+
+#pragma mark -- 去掉 C 语言格式的转一份【\】，在处理其他之前调用
+- (NSString *)removeESCWithStr:(NSString *)sourceStr
+{
+    NSString *newStr = @"";
+    if (!sourceStr || 0 >= sourceStr.length)
+    {
+        return newStr;
+    }
+    if ([sourceStr containsString:@"\\"])
+    {
+        NSArray <NSString *>*rStrArray = [sourceStr componentsSeparatedByString:@"\\"];
         newStr = rStrArray[0];
         for (NSInteger i = 1; i < rStrArray.count; i++)
         {

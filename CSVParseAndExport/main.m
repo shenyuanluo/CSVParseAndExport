@@ -97,7 +97,7 @@ void cvsExport()
 int main(int argc, const char * argv[])
 {
     @autoreleasepool
-    {
+    {        
         int funChoice = 0;
         while (1)
         {
