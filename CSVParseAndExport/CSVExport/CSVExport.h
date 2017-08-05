@@ -8,7 +8,19 @@
 
 #import <Foundation/Foundation.h>
 
+
+@protocol CSVExportDelegate <NSObject>
+
+@optional
+
+- (void)csvExportProgress:(CGFloat)progress;
+
+@end
+
+
 @interface CSVExport : NSObject
+
+@property (nonatomic, weak) id<CSVExportDelegate>delegate;
 
 + (instancetype)shareCSVExport;
 

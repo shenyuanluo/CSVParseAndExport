@@ -75,6 +75,7 @@
     NSString *lastStr  = nil;
     NSString *keyStr   = nil;
     NSString *valueStr = nil;
+    CGFloat progress   = 0;
     NSMutableArray <NSString *> *keyValueArray = nil;
     for (int i = 0; i < strArray.count; i++)
     {
@@ -140,6 +141,11 @@
             [self addKeyStr:keyStr
                    valueStr:valueStr
               currentColumn:currentColumn];
+        }
+        progress = (CGFloat)((CGFloat)(i + 1) / (CGFloat)strArray.count);
+        if (self.delegate && [self.delegate respondsToSelector:@selector(csvExportProgress:)])
+        {
+            [self.delegate csvExportProgress:progress];
         }
     }
     

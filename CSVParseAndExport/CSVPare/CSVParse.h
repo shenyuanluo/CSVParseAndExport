@@ -8,7 +8,19 @@
 
 #import <Foundation/Foundation.h>
 
+
+@protocol CSVParseDelegate <NSObject>
+
+@optional
+
+- (void)csvParseProgress:(CGFloat)progress;
+
+@end
+
+
 @interface CSVParse : NSObject
+
+@property (nonatomic, weak) id<CSVParseDelegate>delegate;
 
 + (instancetype)shareCSVParse;
 

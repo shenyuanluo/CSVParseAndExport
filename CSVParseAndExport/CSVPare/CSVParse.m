@@ -46,6 +46,7 @@
                                                           error:nil];
     NSArray <NSString *> *strArray = [fileContents componentsSeparatedByString:@"\n"];
     NSString *rowStr = nil;
+    CGFloat progress = 0;
     for (NSInteger i = 0; i < strArray.count; i++)
     {
         rowStr = nil;
@@ -54,6 +55,11 @@
         rowStr = [self removeESCWithStr:rowStr];
 //        NSLog(@"rowStr = %@", rowStr);
         [self parseRowStr:rowStr];
+        progress = (CGFloat)((CGFloat)(i + 1) / (CGFloat)strArray.count);
+        if (self.delegate && [self.delegate respondsToSelector:@selector(csvParseProgress:)])
+        {
+            [self.delegate csvParseProgress:progress];
+        }
     }
 }
 
