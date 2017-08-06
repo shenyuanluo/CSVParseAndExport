@@ -38,7 +38,8 @@
 {
     if (!filePath || 0 >= filePath.length)
     {
-        NSLog(@"文件录像不存在！");
+        printf("文件路径不存在！\r\n");
+        fflush(stdout);
         return;
     }
     NSString *fileContents = [NSString stringWithContentsOfFile:filePath
@@ -53,7 +54,8 @@
         rowStr = strArray[i];
         rowStr = [self removeCarriageReturnWithStr:rowStr];
         rowStr = [self removeESCWithStr:rowStr];
-//        NSLog(@"rowStr = %@", rowStr);
+//        printf("rowStr = %s\r\n", [rowStr cStringUsingEncoding:NSUTF8StringEncoding]);
+//        fflush(stdout);
         [self parseRowStr:rowStr];
         progress = (CGFloat)((CGFloat)(i + 1) / (CGFloat)strArray.count);
         if (self.delegate && [self.delegate respondsToSelector:@selector(csvParseProgress:)])
@@ -69,7 +71,8 @@
 {
     if (!rowStr || 2 > rowStr.length)   // keyStr,valueStr （keyStr 必须有值；valueStr 可以为空）
     {
-        NSLog(@"rowStr = nil，无需解析！");
+        printf("rowStr = nil，无需解析！\r\n");
+        fflush(stdout);
         return;
     }
     NSArray <NSString *>*strArray = [rowStr componentsSeparatedByString:@","];

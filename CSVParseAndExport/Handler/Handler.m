@@ -27,7 +27,8 @@
     int funChoice = 0;
     while (1)
     {
-        NSLog(@"Please choice：【1】Parse CVS    【2】Parse Strings    【0】Exit");
+        printf("Please choice：【1】Parse CVS    【2】Parse Strings    【0】Exit\r\n");
+        fflush(stdout);
         scanf("%d", &funChoice);
         if (1 == funChoice)
         {
@@ -57,9 +58,11 @@
     NSString *choiceStr = nil;
     while (1)
     {
-        NSLog(@"Pleae input 'CSV' file path !");
+        printf("Pleae input 'CSV' file path !\r\n");
+        fflush(stdout);
         scanf("%s", path);
-        NSLog(@"Are you sure start parse it？ yes/no");
+        printf("Are you sure start parse it？ yes/no\r\n");
+        fflush(stdout);
         scanf("%s", choice);
         choiceStr = [[NSString alloc] initWithCString:choice
                                              encoding:NSUTF8StringEncoding];
@@ -70,10 +73,14 @@
             NSString *pathStr = [[NSString alloc] initWithCString:path
                                                          encoding:NSUTF8StringEncoding];
             filePath = [pathStr stringByExpandingTildeInPath];
-            NSLog(@"Parsing now, Please waitting...");
+            printf("Parsing now, Please waitting...\r\n");
+            fflush(stdout);
             [CSVParse shareCSVParse].delegate = self;
             [[CSVParse shareCSVParse] parseCSVFileWithPath:filePath];
-            NSLog(@"Parse is finish, result at path:%@", [[FileManager shareFileManager] exportFilePath]);
+            printf("Parsing  ：100.00%c\r\n", '%');
+            fflush(stdout);
+            printf("Parse is finish, result at path:%s\r\n", [[[FileManager shareFileManager] exportFilePath] cStringUsingEncoding:NSUTF8StringEncoding]);
+            fflush(stdout);
             
         }
         exit(1);
@@ -92,7 +99,8 @@
     NSString *choiceStr = nil;
     while (1)
     {
-        NSLog(@"Please input 'strings' file path or input 'start' to start parse !");
+        printf("Please input 'strings' file path or input 'start' to start parse !\r\n");
+        fflush(stdout);
         scanf("%s", path);
         pathStr = [[NSString alloc] initWithCString:path
                                            encoding:NSUTF8StringEncoding];
@@ -109,7 +117,8 @@
         }
     }
     
-    NSLog(@"Are you sure start parse it？ yes/no");
+    printf("Are you sure start parse it？ yes/no\r\n");
+    fflush(stdout);
     scanf("%s", choice);
     choiceStr = [[NSString alloc] initWithCString:choice
                                          encoding:NSUTF8StringEncoding];
@@ -117,7 +126,8 @@
                                               options:NSCaseInsensitiveSearch | NSNumericSearch];
     if (YES == result)
     {
-        NSLog(@"Parsing now, Please waitting...");
+        printf("Parsing now, Please waitting...\r\n");
+        fflush(stdout);
         for (NSInteger i = 0; i < pathArray.count; i++)
         {
             [CSVExport shareCSVExport].delegate = self;
@@ -125,28 +135,61 @@
                                              currentColumn:i + 1
                                                columnCount:pathArray.count];
         }
-        NSLog(@"Parse is finish, result at path:%@", [[FileManager shareFileManager] exportFilePath]);
+        printf("Parsing  ：100.00%c\r\n", '%');
+        fflush(stdout);
+        printf("Parse is finish, result at path:%s\r\n", [[[FileManager shareFileManager] exportFilePath] cStringUsingEncoding:NSUTF8StringEncoding]);
+        fflush(stdout);
     }
     exit(1);
+}
+
+
+- (void)animationWithProgress:(CGFloat)progress
+{
+    static unsigned int count = 0;
+    count++;
+    char strArray[40]={'\\', '\\', '\\', '\\', '\\', '\\', '\\', '\\', '\\', '\\',
+                        '|', '|', '|', '|', '|', '|', '|', '|', '|', '|',
+                        '/', '/', '/', '/', '/', '/', '/', '/', '/', '/',
+                        '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'};
+    char rotateStr = strArray[count % 40];
+    
+    fflush(stdout);
+    printf("Parsing %c：%0.2f%c\r", rotateStr, progress * 100,'%');
+    fflush(stdout);
 }
 
 
 #pragma mark -- CSV parse delegate
 - (void)csvParseProgress:(CGFloat)progress
 {
-    fflush(stdout);
-    printf("解析已完成：%0.2f%c\r", progress * 100,'%');
-    fflush(stdout);
-//    NSLog(@"解析已完成：%0.2f%c\r", progress * 100,'%');
+    __weak typeof(self)weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(0, DISPATCH_QUEUE_PRIORITY_DEFAULT), ^{
+        
+        __strong typeof(weakSelf)strongSelf = weakSelf;
+        if (!strongSelf)
+        {
+            printf("Upate progress is failure !\n");
+            return ;
+        }
+        [strongSelf animationWithProgress:progress];
+    });
 }
 
 
 - (void)csvExportProgress:(CGFloat)progress
 {
-    fflush(stdout);
-    printf("解析已完成：%0.2f%c\r", progress * 100,'%');
-    fflush(stdout);
-    //    NSLog(@"解析已完成：%0.2f%c\r", progress * 100,'%');
+    __weak typeof(self)weakSelf = self;
+    dispatch_async(dispatch_get_global_queue(0, DISPATCH_QUEUE_PRIORITY_DEFAULT), ^{
+        
+        __strong typeof(weakSelf)strongSelf = weakSelf;
+        if (!strongSelf)
+        {
+            printf("Upate progress is failure !\n");
+            return ;
+        }
+        [strongSelf animationWithProgress:progress];
+    });
 }
 
 

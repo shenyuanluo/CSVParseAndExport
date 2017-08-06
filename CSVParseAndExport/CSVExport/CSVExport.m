@@ -137,7 +137,8 @@
                 valueStr = [valueStr stringByReplacingOccurrencesOfString:@","  // 替换 ‘,’  逗号
                                                                withString:@"`"];
             }
-            //            NSLog(@"【%d】 keyStr = %@, valueStr = %@", i, keyStr, valueStr);
+//            printf("【%d】 keyStr = %s, valueStr = %s\r\n", i, [keyStr cStringUsingEncoding:NSUTF8StringEncoding], [valueStr cStringUsingEncoding:NSUTF8StringEncoding]);
+//            fflush(stdout);
             [self addKeyStr:keyStr
                    valueStr:valueStr
               currentColumn:currentColumn];
